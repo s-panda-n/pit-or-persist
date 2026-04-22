@@ -81,15 +81,47 @@ def get_compound(telemetry, r=1.0):
     """Return current tyre compound."""
     return inject_noise(telemetry["compound"], "compound", r)
 
+def get_pit_window(telemetry, r=1.0):
+    """
+    Compute a strategic pit recommendation based on telemetry.
+    Returns: dict with 'recommended' (PIT/STAY) and 'confidence' (high/medium/low)
+    This tool can also be corrupted at reliability r.
+    """
+    tyre_age = inject_noise(telemetry["tyre_age"], "int", r)
+    deg_rate = inject_noise(telemetry["deg_rate"], "float", r)
+    gap = inject_noise(telemetry["gap_to_leader"], "float", r)
+    compound = inject_noise(telemetry["compound"], "compound", r)
+
+    # Domain rules for pit recommendation
+    max_age = {"SOFT": 20, "MEDIUM": 32, "HARD": 42}.get(compound, 30)
+    age_score = tyre_age / max_age          # >1.0 means overdue
+    deg_score = max(0, deg_rate) / 0.15    # normalized degradation
+    gap_ok = gap > 3.0                     # enough gap to pit safely
+
+    score = 0.5 * age_score + 0.5 * deg_score
+
+    if score > 0.85 and gap_ok:
+        recommended, confidence = "PIT", "high"
+    elif score > 0.65 and gap_ok:
+        recommended, confidence = "PIT", "medium"
+    elif score > 0.85 and not gap_ok:
+        recommended, confidence = "PIT", "low"  # needs to pit but risky
+    else:
+        recommended, confidence = "STAY", "high" if score < 0.4 else "medium"
+
+    return {
+        "recommended": recommended,
+        "confidence": confidence,
+        "tyre_life_pct": round(tyre_age / max_age * 100, 1),
+        "deg_normalized": round(deg_score, 3)
+    }
+
 
 # ── Snapshot serving ─────────────────────────────────────────────────────────
 
 def serve_snapshot(snapshot, r=1.0):
-    """
-    Simulate MCP tool calls for a snapshot at reliability r.
-    Returns corrupted telemetry ready for prompt injection.
-    """
     tel = snapshot["telemetry"]
+    pit_window = get_pit_window(tel, r)
     return {
         "tyre_age":      get_tyre_age(tel, r),
         "compound":      get_compound(tel, r),
@@ -97,7 +129,7 @@ def serve_snapshot(snapshot, r=1.0):
         "gap_to_leader": get_gap(tel, r),
         "deg_rate":      get_deg_rate(tel, r),
         **get_weather(tel, r),
-        # metadata (never corrupted)
+        "pit_window":    pit_window,   # strategic recommendation
         "lap":           snapshot["lap"],
         "total_laps":    snapshot["total_laps"],
         "race":          snapshot["race"],

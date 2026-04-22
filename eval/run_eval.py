@@ -39,7 +39,15 @@ def evaluate(model, tokenizer, snapshots, mode, r, device, max_new_tokens=16):
         tel = serve_snapshot(snap, r=r)
         prompt = prompt_fn(tel)
 
-        inputs = tokenizer(prompt, return_tensors="pt").to(device)
+        # Use chat template for instruct models
+        messages = [{"role": "user", "content": prompt}]
+        text = tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        inputs = tokenizer(text, return_tensors="pt").to(device)
+
         with torch.no_grad():
             output = model.generate(
                 **inputs,
@@ -60,7 +68,7 @@ def evaluate(model, tokenizer, snapshots, mode, r, device, max_new_tokens=16):
             "label": label,
             "pred": pred,
             "correct": int(pred == label),
-            "generated": generated[:200],  # truncate for storage
+            "generated": generated[:200],
             "r": r,
             "mode": mode
         })
