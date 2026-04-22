@@ -9,7 +9,9 @@ fastf1.Cache.enable_cache('data/raw/cache')
 
 RACES = [
     (2022, 'Bahrain'), (2022, 'Australia'), (2022, 'Spain'),
+    (2022, 'Monaco'), (2022, 'Italy'),
     (2023, 'Bahrain'), (2023, 'Australia'), (2023, 'Spain'),
+    (2023, 'Monaco'), (2023, 'Italy'),
 ]
 
 def compute_deg_rate(driver_laps, current_lap_num, window=3):

@@ -14,7 +14,7 @@ print(f"Pit: {len(pit)}, Stay: {len(stay)}")
 
 # subsample stay to 3x pit (still realistic but not degenerate)
 # gives ~920 pit, ~690 stay -> roughly balanced enough
-stay_sampled = random.sample(stay, min(len(pit) * 3, len(stay)))
+stay_sampled = random.sample(stay, min(len(pit) * 4, len(stay)))
 
 # combine and shuffle
 balanced = pit + stay_sampled

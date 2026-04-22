@@ -29,14 +29,14 @@ def parse_decision(text, mode):
             return 1
         return 0
 
-def evaluate(model, tokenizer, snapshots, mode, r, device, max_new_tokens=16):
+def evaluate(model, tokenizer, snapshots, mode, r, device, max_new_tokens=16, noise_type="plausible"):
     results = []
     prompt_fn = zero_shot_prompt if mode == "zero_shot" else cot_prompt
     if mode == "cot":
         max_new_tokens = 300
 
     for i, snap in enumerate(snapshots):
-        tel = serve_snapshot(snap, r=r)
+        tel = serve_snapshot(snap, r=r, noise_type=noise_type)
         prompt = prompt_fn(tel)
 
         # Use chat template for instruct models
@@ -84,6 +84,7 @@ def main():
     parser.add_argument("--model", default="Qwen/Qwen2.5-7B-Instruct")
     parser.add_argument("--snapshots", default="data/snapshots/snapshots_balanced.jsonl")
     parser.add_argument("--mode", default="zero_shot", choices=["zero_shot", "cot"])
+    parser.add_argument("--noise", default="plausible", choices=["plausible", "anomalous"])
     parser.add_argument("--r", type=float, default=1.0)
     parser.add_argument("--n", type=int, default=100)
     parser.add_argument("--out", default="results/eval_results.jsonl")
@@ -104,7 +105,7 @@ def main():
     snapshots = load_snapshots(args.snapshots, n=args.n)
     print(f"Loaded {len(snapshots)} snapshots | mode={args.mode} | r={args.r}")
 
-    results = evaluate(model, tokenizer, snapshots, args.mode, args.r, device)
+    results = evaluate(model, tokenizer, snapshots, args.mode, args.r, device, noise_type=args.noise)
 
     # metrics
     acc = sum(r['correct'] for r in results) / len(results)

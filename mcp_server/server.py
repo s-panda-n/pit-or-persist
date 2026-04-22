@@ -39,6 +39,31 @@ def inject_noise(value, field_type, r):
 
     return value
 
+def inject_anomalous_noise(value, field_type):
+    """Obviously wrong values — outside any realistic F1 range."""
+    if field_type == 'int':
+        return random.choice([0, 150, 999])
+    elif field_type == 'float':
+        return random.choice([-999.0, 999.0, 0.0])
+    elif field_type == 'compound':
+        return 'UNKNOWN'
+    elif field_type == 'bool':
+        return not value
+    return value
+
+
+def corrupt_telemetry_anomalous(telemetry):
+    """Corrupt all fields with obviously anomalous values."""
+    return {
+        "tyre_age":      inject_anomalous_noise(telemetry["tyre_age"],      "int"),
+        "compound":      inject_anomalous_noise(telemetry["compound"],       "compound"),
+        "position":      inject_anomalous_noise(telemetry["position"],       "int"),
+        "gap_to_leader": inject_anomalous_noise(telemetry["gap_to_leader"],  "float"),
+        "deg_rate":      inject_anomalous_noise(telemetry["deg_rate"],       "float"),
+        "air_temp":      inject_anomalous_noise(telemetry["air_temp"],       "float"),
+        "rainfall":      inject_anomalous_noise(telemetry["rainfall"],       "bool"),
+    }
+
 
 def corrupt_telemetry(telemetry, r):
     """Apply noise at reliability level r to all telemetry fields."""
@@ -119,17 +144,25 @@ def get_pit_window(telemetry, r=1.0):
 
 # ── Snapshot serving ─────────────────────────────────────────────────────────
 
-def serve_snapshot(snapshot, r=1.0):
+def serve_snapshot(snapshot, r=1.0, noise_type="plausible"):
     tel = snapshot["telemetry"]
-    pit_window = get_pit_window(tel, r)
+    
+    if noise_type == "anomalous" and r < 1.0:
+        corrupted = corrupt_telemetry_anomalous(tel)
+    else:
+        corrupted = corrupt_telemetry(tel, r)
+    
+    pit_window = get_pit_window(tel, r if noise_type == "plausible" else 0.4)
+    
     return {
-        "tyre_age":      get_tyre_age(tel, r),
-        "compound":      get_compound(tel, r),
-        "position":      inject_noise(tel["position"], "int", r),
-        "gap_to_leader": get_gap(tel, r),
-        "deg_rate":      get_deg_rate(tel, r),
-        **get_weather(tel, r),
-        "pit_window":    pit_window,   # strategic recommendation
+        "tyre_age":      corrupted["tyre_age"],
+        "compound":      corrupted["compound"],
+        "position":      corrupted["position"],
+        "gap_to_leader": corrupted["gap_to_leader"],
+        "deg_rate":      corrupted["deg_rate"],
+        "air_temp":      corrupted["air_temp"],
+        "rainfall":      corrupted["rainfall"],
+        "pit_window":    pit_window,
         "lap":           snapshot["lap"],
         "total_laps":    snapshot["total_laps"],
         "race":          snapshot["race"],
