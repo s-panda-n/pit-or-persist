@@ -35,11 +35,11 @@ zeroshot = {
 # CoT — fill in as results arrive
 cot = {
     1.0: load('results/cot_r1.0.jsonl'),
-    # 0.8: load('results/cot_plausible_r0.8.jsonl'),
-    # 0.6: load('results/cot_plausible_r0.6.jsonl'),
-    # 0.4: load('results/cot_plausible_r0.4.jsonl'),
+    0.8: load('results/cot_plausible_r0.8.jsonl'),
+    0.6: load('results/cot_plausible_r0.6.jsonl'),
+    0.4: load('results/cot_plausible_r0.4.jsonl'),
 }
-
+cot_anomalous_r06 = load('results/cot_anomalous_r0.6.jsonl')
 anomalous_r06 = load('results/zeroshot_anomalous_test.jsonl')
 
 fig, axes = plt.subplots(1, 2, figsize=(10, 4))
@@ -64,6 +64,8 @@ else:
 
 ax.scatter([0.6], [anomalous_r06['overall']], marker='^', color='#D97706',
            s=60, zorder=5, label='Zero-shot anomalous (r=0.6)')
+ax.scatter([0.6], [cot_anomalous_r06['overall']], marker='^', color='#DC2626',
+           s=60, zorder=5, label='CoT anomalous (r=0.6)')
 
 ax.set_xlabel('Reliability r')
 ax.set_ylabel('Overall accuracy')
