@@ -68,7 +68,7 @@ def evaluate(model, tokenizer, snapshots, mode, r, device, max_new_tokens=16, no
             "label": label,
             "pred": pred,
             "correct": int(pred == label),
-            "generated": generated[:200],
+            "generated": generated,
             "r": r,
             "mode": mode
         })
