@@ -29,14 +29,14 @@ def parse_decision(text, mode):
             return 1
         return 0
 
-def evaluate(model, tokenizer, snapshots, mode, r, device, max_new_tokens=16, noise_type="plausible"):
+def evaluate(model, tokenizer, snapshots, mode, r, device, max_new_tokens=16, noise_type="plausible", ablation_field=None):
     results = []
     prompt_fn = zero_shot_prompt if mode == "zero_shot" else cot_prompt
     if mode == "cot":
         max_new_tokens = 300
 
     for i, snap in enumerate(snapshots):
-        tel = serve_snapshot(snap, r=r, noise_type=noise_type)
+        tel = serve_snapshot(snap, r=r, noise_type=noise_type, ablation_field=ablation_field)
         prompt = prompt_fn(tel)
 
         # Use chat template for instruct models
@@ -87,6 +87,8 @@ def main():
     parser.add_argument("--noise", default="plausible", choices=["plausible", "anomalous"])
     parser.add_argument("--r", type=float, default=1.0)
     parser.add_argument("--n", type=int, default=100)
+    parser.add_argument("--ablation_field", default=None,
+    help="If set, corrupt only this field. Others stay clean.")
     parser.add_argument("--out", default="results/eval_results.jsonl")
     args = parser.parse_args()
 
@@ -105,24 +107,51 @@ def main():
     snapshots = load_snapshots(args.snapshots, n=args.n)
     print(f"Loaded {len(snapshots)} snapshots | mode={args.mode} | r={args.r}")
 
-    results = evaluate(model, tokenizer, snapshots, args.mode, args.r, device, noise_type=args.noise)
+    results = evaluate(model, tokenizer, snapshots, args.mode, args.r, device,noise_type=args.noise, ablation_field=args.ablation_field)
 
     # metrics
-    acc = sum(r['correct'] for r in results) / len(results)
-    pit_snaps = [r for r in results if r['label'] == 1]
-    stay_snaps = [r for r in results if r['label'] == 0]
-    pit_acc = sum(r['correct'] for r in pit_snaps) / len(pit_snaps) if pit_snaps else 0
-    stay_acc = sum(r['correct'] for r in stay_snaps) / len(stay_snaps) if stay_snaps else 0
+    def compute_metrics(results):
+        acc = sum(r['correct'] for r in results) / len(results)
+        pit = [r for r in results if r['label'] == 1]
+        stay = [r for r in results if r['label'] == 0]
+        pit_acc = sum(r['correct'] for r in pit) / len(pit) if pit else 0
+        stay_acc = sum(r['correct'] for r in stay) / len(stay) if stay else 0
+    
+        # precision: of all predicted PIT, how many were actually PIT
+        pred_pit = [r for r in results if r['pred'] == 1]
+        precision = sum(r['correct'] for r in pred_pit) / len(pred_pit) if pred_pit else 0
+        recall = pit_acc  # same as pit accuracy
+        f1 = 2 * precision * recall / (precision + recall) if (precision + recall) > 0 else 0
+    
+        return {
+            'overall': acc,
+            'pit_recall': pit_acc,
+            'pit_precision': precision,
+            'pit_f1': f1,
+            'stay_acc': stay_acc,
+            'n': len(results),
+            'n_pit': len(pit),
+            'n_stay': len(stay),
+            'n_pred_pit': len(pred_pit),
+        }
 
+    metrics = compute_metrics(results)
     print(f"\n=== RESULTS ===")
-    print(f"Overall accuracy: {acc:.3f}")
-    print(f"Pit accuracy:     {pit_acc:.3f} ({len(pit_snaps)} examples)")
-    print(f"Stay accuracy:    {stay_acc:.3f} ({len(stay_snaps)} examples)")
+    print(f"Overall accuracy:  {metrics['overall']:.3f}")
+    print(f"Pit recall:        {metrics['pit_recall']:.3f} ({metrics['n_pit']} examples)")
+    print(f"Pit precision:     {metrics['pit_precision']:.3f} ({metrics['n_pred_pit']} predicted pit)")
+    print(f"Pit F1:            {metrics['pit_f1']:.3f}")
+    print(f"Stay accuracy:     {metrics['stay_acc']:.3f} ({metrics['n_stay']} examples)")
 
     Path(args.out).parent.mkdir(exist_ok=True)
     with open(args.out, 'w') as f:
         for r in results:
             f.write(json.dumps(r) + '\n')
+
+    # save metrics alongside results
+    metrics_path = args.out.replace('.jsonl', '_metrics.json')
+    with open(metrics_path, 'w') as f:
+        json.dump({**metrics, 'mode': args.mode, 'r': args.r, 'noise': args.noise}, f, indent=2)
     print(f"Saved to {args.out}")
 
 if __name__ == "__main__":

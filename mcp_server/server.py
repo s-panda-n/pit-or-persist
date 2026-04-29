@@ -141,27 +141,49 @@ def get_pit_window(telemetry, r=1.0):
         "deg_normalized": round(deg_score, 3)
     }
 
+def _field_type(field):
+    types = {
+        "tyre_age": "int",
+        "compound": "compound",
+        "position": "int",
+        "gap_to_leader": "float",
+        "deg_rate": "float",
+        "air_temp": "float",
+        "rainfall": "bool",
+        "pit_window": "float",
+    }
+    return types.get(field, "float")
+    
 
 # ── Snapshot serving ─────────────────────────────────────────────────────────
 
-def serve_snapshot(snapshot, r=1.0, noise_type="plausible"):
+def serve_snapshot(snapshot, r=1.0, noise_type="plausible", ablation_field=None):
     tel = snapshot["telemetry"]
-    
-    if noise_type == "anomalous" and r < 1.0:
+
+    if ablation_field is not None:
+        # only corrupt the specified field, everything else clean
+        corrupted = tel.copy()
+        if noise_type == "anomalous":
+            corrupted[ablation_field] = inject_anomalous_noise(
+                tel[ablation_field], _field_type(ablation_field))
+        else:
+            corrupted[ablation_field] = inject_noise(
+                tel[ablation_field], _field_type(ablation_field), r)
+    elif noise_type == "anomalous" and r < 1.0:
         corrupted = corrupt_telemetry_anomalous(tel)
     else:
         corrupted = corrupt_telemetry(tel, r)
-    
+
     pit_window = get_pit_window(tel, r if noise_type == "plausible" else 0.4)
-    
+
     return {
         "tyre_age":      corrupted["tyre_age"],
         "compound":      corrupted["compound"],
         "position":      corrupted["position"],
         "gap_to_leader": corrupted["gap_to_leader"],
         "deg_rate":      corrupted["deg_rate"],
-        "air_temp":      corrupted["air_temp"],
-        "rainfall":      corrupted["rainfall"],
+        "air_temp":      corrupted.get("air_temp", tel["air_temp"]),
+        "rainfall":      corrupted.get("rainfall", tel["rainfall"]),
         "pit_window":    pit_window,
         "lap":           snapshot["lap"],
         "total_laps":    snapshot["total_laps"],
