@@ -161,20 +161,25 @@ def serve_snapshot(snapshot, r=1.0, noise_type="plausible", ablation_field=None)
     tel = snapshot["telemetry"]
 
     if ablation_field is not None:
-        # only corrupt the specified field, everything else clean
         corrupted = tel.copy()
-        if noise_type == "anomalous":
-            corrupted[ablation_field] = inject_anomalous_noise(
-                tel[ablation_field], _field_type(ablation_field))
+        if ablation_field == "pit_window":
+            # pit_window is computed, not a raw field
+            # corrupt it by passing r=0.4 to get_pit_window (forces wrong recommendation)
+            pit_window = get_pit_window(tel, r=0.4)
         else:
-            corrupted[ablation_field] = inject_noise(
-                tel[ablation_field], _field_type(ablation_field), r)
+            if noise_type == "anomalous":
+                corrupted[ablation_field] = inject_anomalous_noise(
+                    tel[ablation_field], _field_type(ablation_field))
+            else:
+                corrupted[ablation_field] = inject_noise(
+                    tel[ablation_field], _field_type(ablation_field), r)
+            pit_window = get_pit_window(tel, r=1.0)  # clean pit_window when ablating other fields
     elif noise_type == "anomalous" and r < 1.0:
         corrupted = corrupt_telemetry_anomalous(tel)
+        pit_window = get_pit_window(tel, r=0.4)
     else:
         corrupted = corrupt_telemetry(tel, r)
-
-    pit_window = get_pit_window(tel, r if noise_type == "plausible" else 0.4)
+        pit_window = get_pit_window(tel, r)
 
     return {
         "tyre_age":      corrupted["tyre_age"],
