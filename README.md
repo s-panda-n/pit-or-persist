@@ -21,28 +21,31 @@ noise but not plausible noise.
 
 ---
 
-## Repository Structure
+### Repository Structure
+
+```
 pit-or-persist/
 ├── data/
-│   ├── build_snapshots.py      # extract lap-level snapshots from FastF1
-│   ├── balance_snapshots.py    # balance pit/stay class distribution
-│   └── explore.py              # exploratory data analysis
+│   ├── build_snapshots.py       # extract lap-level snapshots from FastF1
+│   ├── balance_snapshots.py     # balance pit/stay class distribution
+│   └── explore.py               # exploratory data analysis
 ├── mcp_server/
-│   ├── server.py               # MCP-style tool server with noise injection
-│   └── init.py
+│   ├── server.py                # MCP-style tool server with noise injection
+│   └── __init__.py
 ├── eval/
-│   ├── prompts.py              # zero-shot and CoT prompt templates
-│   ├── run_eval.py             # Qwen evaluation on HPC (GPU)
-│   ├── run_eval_api.py         # Claude Haiku evaluation via Anthropic API
-│   ├── compute_metrics.py      # compute F1, precision, recall from results
-│   └── faithfulness.py         # CoT scratchpad faithfulness analysis
+│   ├── prompts.py               # zero-shot and CoT prompt templates
+│   ├── run_eval.py              # Qwen evaluation on HPC (GPU)
+│   ├── run_eval_api.py          # Claude Haiku evaluation via Anthropic API
+│   ├── compute_metrics.py       # compute F1, precision, recall from results
+│   └── faithfulness.py          # CoT scratchpad faithfulness analysis
 ├── paper/
-│   └── plot_results.py         # generate all paper figures
+│   └── plot_results.py          # generate all paper figures
 ├── slurm/
-│   ├── run_full.slurm          # full Qwen sweep (8 conditions)
-│   ├── run_ablation.slurm      # per-field ablation jobs
-│   └── run_pitwindow_cot.slurm # pit_window CoT ablation
-└── results/                    # gitignored — generated on HPC
+│   ├── run_full.slurm           # full Qwen sweep (8 conditions)
+│   ├── run_ablation.slurm       # per-field ablation jobs
+│   └── run_pitwindow_cot.slurm  # pit_window CoT ablation
+└── results/                     # gitignored — generated on HPC
+```
 
 ---
 
